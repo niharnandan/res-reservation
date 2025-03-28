@@ -2,23 +2,25 @@ import React from 'react';
 import { CssVarsProvider, useColorScheme } from '@mui/joy/styles';
 import { Button, Typography, IconButton, Sheet } from '@mui/joy';
 import { extendTheme } from '@mui/joy/styles';
+import Calendar from './components/Calendar';
 
 // Theme toggle component that uses Joy UI's useColorScheme hook
 const ThemeToggle = () => {
   const { mode, setMode } = useColorScheme();
-  
+
   const toggleMode = () => {
     setMode(mode === 'light' ? 'dark' : 'light');
   };
 
   return (
-    <IconButton 
-      variant="outlined" 
-      onClick={toggleMode} 
-      aria-label="Toggle theme"
-    >
-      {mode === 'light' ? '🌙' : '☀️'}
-    </IconButton>
+    // <IconButton
+    //   variant="outlined"
+    //   onClick={toggleMode}
+    //   aria-label="Toggle theme"
+    // >
+    //   {mode === 'light' ? '🌙' : '☀️'}
+    // </IconButton>
+    <></>
   );
 };
 
@@ -66,30 +68,25 @@ const theme = extendTheme({
 const App: React.FC = () => {
   return (
     <CssVarsProvider theme={theme} defaultMode="light">
-      <Sheet 
-        sx={{ 
-          minHeight: '100vh',
+      <Sheet
+        sx={{
           padding: 3,
           transition: 'background-color 0.3s, color 0.3s',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: '20px',
+          }}
+        >
           <Typography level="h1">Welcome to Joy UI</Typography>
           <ThemeToggle />
         </div>
-        
-        <div style={{ marginTop: '20px' }}>
-          <Typography level="body-lg" sx={{ mb: 2 }}>
-            This is a demo of Joy UI with theme switching capabilities.
-          </Typography>
-          
-          <Button color="primary" variant="solid">
-            Primary Button
-          </Button>
-          
-          <Button color="neutral" variant="outlined" sx={{ ml: 2 }}>
-            Secondary Button
-          </Button>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <Calendar />
         </div>
       </Sheet>
     </CssVarsProvider>
