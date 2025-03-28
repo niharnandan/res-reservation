@@ -1,72 +1,163 @@
-import React, { useState } from 'react';
-import { Button, Sheet, Typography, Grid, Box } from '@mui/joy';
+import { useState, useEffect } from 'react';
+import { Button, Sheet, Typography, Grid, Box, CircularProgress } from '@mui/joy';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 import BookingForm from './BookngForm';
 
-// Interface for the form data
 interface BookingFormData {
   name: string;
   phone: string;
 }
 
-const Calendar: React.FC = () => {
+interface TimeSlot {
+  time: string;
+  isAvailable: boolean;
+}
+
+interface AvailabilityData {
+  date: string;
+  allTimeSlots: string[];
+  availableTimeSlots: string[];
+  bookedTimeSlots: string[];
+  isFullyBooked: boolean;
+}
+
+const Calendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [availabilityData, setAvailabilityData] = useState<Record<string, AvailabilityData>>({});
+  const [displayTimeSlots, setDisplayTimeSlots] = useState<TimeSlot[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Get the current date
   const today = new Date();
-
-  // Get the current week's Monday
   const monday = startOfWeek(today, { weekStartsOn: 1 });
 
-  // Generate weekdays (Monday to Friday)
-  const weekdays = [];
+  const weekdays: Date[] = [];
   for (let i = 0; i < 5; i++) {
     weekdays.push(addDays(monday, i));
   }
 
-  // Handle date selection
-  const handleDateSelect = (date: Date) => {
-    setSelectedDate(date);
-    setSelectedTime(null); // Reset selected time when a new date is chosen
+  const defaultTimeSlots = ['12:30 PM', '4:30 PM', '8:30 PM'];
+
+  useEffect(() => {
+    const loadAllAvailability = async () => {
+      for (const day of weekdays) {
+        await fetchAvailability(day);
+      }
+    };
+
+    loadAllAvailability();
+  }, []);
+
+  const fetchAvailability = async (date: Date) => {
+    try {
+      setIsLoading(true);
+      const formattedDate = format(date, 'yyyy-MM-dd');
+
+      if (availabilityData[formattedDate]) {
+        if (selectedDate && isSameDay(date, selectedDate)) {
+          updateDisplayTimeSlots(availabilityData[formattedDate]);
+        }
+        return;
+      }
+
+      const response = await fetch(`/api/availability/${formattedDate}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch availability');
+      }
+
+      const data: AvailabilityData = await response.json();
+
+      setAvailabilityData(prev => ({
+        ...prev,
+        [formattedDate]: data,
+      }));
+
+      if (selectedDate && isSameDay(date, selectedDate)) {
+        updateDisplayTimeSlots(data);
+      }
+    } catch (error) {
+      console.error('Error fetching availability:', error);
+      if (selectedDate && isSameDay(date, selectedDate)) {
+        setDisplayTimeSlots(defaultTimeSlots.map(time => ({ time, isAvailable: true })));
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handle time selection
+  const updateDisplayTimeSlots = (data: AvailabilityData) => {
+    setDisplayTimeSlots(
+      data.allTimeSlots.map(time => ({
+        time,
+        isAvailable: data.availableTimeSlots.includes(time),
+      }))
+    );
+  };
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setSelectedTime(null);
+
+    const formattedDate = format(date, 'yyyy-MM-dd');
+    if (availabilityData[formattedDate]) {
+      updateDisplayTimeSlots(availabilityData[formattedDate]);
+    } else {
+      fetchAvailability(date);
+    }
+  };
+
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
   };
 
-  // Open booking form
   const openBookingForm = () => {
     setIsFormOpen(true);
   };
 
-  // Close booking form
   const closeBookingForm = () => {
     setIsFormOpen(false);
   };
 
-  // Close form without resetting selected date and time
-  const handleFormClose = () => {
-    closeBookingForm();
-    // We're not resetting the date and time so they remain selected when form is closed
+  const handleFormSubmit = async (data: BookingFormData): Promise<boolean> => {
+    if (!selectedDate || !selectedTime) return false;
+
+    try {
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          date: format(selectedDate, 'yyyy-MM-dd'),
+          time: selectedTime,
+          name: data.name,
+          phone: data.phone,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Booking failed:', await response.json());
+        return false;
+      }
+
+      await fetchAvailability(selectedDate);
+
+      for (const day of weekdays) {
+        await fetchAvailability(day);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      return false;
+    }
   };
 
-  // Handle form submission
-  const handleFormSubmit = (data: BookingFormData) => {
-    console.log('Booking details:', {
-      date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null,
-      time: selectedTime,
-      customer: data,
-    });
-
-    // In a real application, you would send this data to your backend
-    // After successful submission form will show confirmation (handled inside the form component)
+  const isDateFullyBooked = (date: Date) => {
+    const formattedDate = format(date, 'yyyy-MM-dd');
+    return availabilityData[formattedDate]?.isFullyBooked || false;
   };
-
-  // Available time slots
-  const timeSlots = ['12:30 PM', '4:30 PM', '8:30 PM'];
 
   return (
     <>
@@ -75,32 +166,34 @@ const Calendar: React.FC = () => {
           padding: 3,
           borderRadius: 'md',
           boxShadow: 'sm',
-          width: '500px', // Fixed width
-          minWidth: '500px',
+          width: '100%',
+          maxWidth: '500px',
+          minWidth: '300px',
+          margin: '0 auto',
         }}
       >
-        <Typography level="h2" sx={{ marginBottom: 2 }} component="div">
+        <Typography level="h2" sx={{ marginBottom: 2, textAlign: 'center' }} component="div">
           This Week
         </Typography>
 
-        {/* Display weekdays (Monday-Friday) */}
-        <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid container spacing={2} sx={{ mb: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
           {weekdays.map((day, index) => (
-            <Grid xs={2.4} key={index}>
+            <Grid xs={12} sm={2.4} key={index}>
               <Box
                 sx={{
                   textAlign: 'center',
-                  height: '80px', // Fixed height for day containers
+                  height: '80px',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
+                  alignItems: 'center',
                 }}
               >
                 <Typography
                   level="body-sm"
                   component="div"
                   sx={{
-                    whiteSpace: 'nowrap', // Prevent text wrapping
+                    whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     mb: 1,
@@ -111,9 +204,13 @@ const Calendar: React.FC = () => {
                 <Button
                   variant={selectedDate && isSameDay(day, selectedDate) ? 'solid' : 'outlined'}
                   color="primary"
+                  disabled={isDateFullyBooked(day)}
                   sx={{
                     width: '100%',
-                    height: '40px', // Fixed height for buttons
+                    height: '40px',
+                    ...(isDateFullyBooked(day) && {
+                      opacity: 0.5,
+                    }),
                   }}
                   onClick={() => handleDateSelect(day)}
                 >
@@ -124,45 +221,49 @@ const Calendar: React.FC = () => {
           ))}
         </Grid>
 
-        {/* Display times only after a date is selected */}
         {selectedDate && (
           <Box sx={{ mt: 3 }}>
-            <Typography
-              level="h3"
-              sx={{ mb: 2 }}
-              component="div"
-              noWrap // Prevent wrapping
-            >
+            <Typography level="h3" sx={{ mb: 2, textAlign: 'center' }} component="div" noWrap>
               {`Select a time for ${format(selectedDate, 'EEEE, MMM d')}`}
             </Typography>
-            <Grid container spacing={2}>
-              {timeSlots.map(time => (
-                <Grid xs={4} key={time}>
-                  <Button
-                    variant={selectedTime === time ? 'solid' : 'outlined'}
-                    color={selectedTime === time ? 'warning' : 'neutral'} // Change to orange when selected
-                    sx={{
-                      width: '100%',
-                      height: '40px', // Fixed height
-                      ...(selectedTime === time && {
-                        backgroundColor: '#ff9800', // Custom orange
-                        color: 'white',
-                        '&:hover': {
-                          backgroundColor: '#ed8c00', // Slightly darker on hover
-                        },
-                      }),
-                    }}
-                    onClick={() => handleTimeSelect(time)}
-                  >
-                    {time}
-                  </Button>
-                </Grid>
-              ))}
-            </Grid>
+
+            {isLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <Grid container spacing={2} sx={{ flexWrap: 'wrap', justifyContent: 'center' }}>
+                {displayTimeSlots.map(slot => (
+                  <Grid xs={12} sm={4} key={slot.time}>
+                    <Button
+                      variant={selectedTime === slot.time ? 'solid' : 'outlined'}
+                      color={selectedTime === slot.time ? 'warning' : 'neutral'}
+                      disabled={!slot.isAvailable}
+                      sx={{
+                        width: '100%',
+                        height: '40px',
+                        ...(selectedTime === slot.time && {
+                          backgroundColor: '#ff9800',
+                          color: 'white',
+                          '&:hover': {
+                            backgroundColor: '#ed8c00',
+                          },
+                        }),
+                        ...(!slot.isAvailable && {
+                          opacity: 0.5,
+                        }),
+                      }}
+                      onClick={() => handleTimeSelect(slot.time)}
+                    >
+                      {slot.time}
+                    </Button>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
           </Box>
         )}
 
-        {/* Show "Book Table" button only when both date and time are selected */}
         {selectedDate && selectedTime && (
           <Box sx={{ mt: 3, textAlign: 'center' }}>
             <Button
@@ -171,7 +272,7 @@ const Calendar: React.FC = () => {
               size="lg"
               sx={{
                 width: '100%',
-                height: '48px', // Fixed height
+                height: '48px',
               }}
               onClick={openBookingForm}
             >
@@ -185,7 +286,7 @@ const Calendar: React.FC = () => {
         open={isFormOpen}
         selectedDate={selectedDate}
         selectedTime={selectedTime}
-        onClose={handleFormClose}
+        onClose={closeBookingForm}
         onSubmit={handleFormSubmit}
       />
     </>

@@ -72,20 +72,36 @@ const App: React.FC = () => {
         sx={{
           padding: 3,
           transition: 'background-color 0.3s, color 0.3s',
+          maxWidth: '100%',
+          width: '100%',
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
         }}
       >
         <div
           style={{
             display: 'flex',
+            flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
             marginBottom: '20px',
+            textAlign: 'center',
           }}
         >
           <Typography level="h1">Welcome to Joy UI</Typography>
           <ThemeToggle />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: '100%',
+          }}
+        >
           <Calendar />
         </div>
       </Sheet>

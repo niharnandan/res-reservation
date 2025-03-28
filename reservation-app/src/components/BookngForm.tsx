@@ -25,7 +25,7 @@ interface BookingFormProps {
   selectedDate: Date | null;
   selectedTime: string | null;
   onClose: () => void;
-  onSubmit: (data: BookingFormData) => void;
+  onSubmit: (data: BookingFormData) => Promise<boolean | undefined>;
 }
 
 const BookingForm = ({ open, selectedDate, selectedTime, onClose, onSubmit }: BookingFormProps) => {
@@ -46,9 +46,15 @@ const BookingForm = ({ open, selectedDate, selectedTime, onClose, onSubmit }: Bo
     onClose();
   };
 
-  const handleFormSubmit = (data: BookingFormData) => {
-    onSubmit(data);
-    setBookingConfirmed(true);
+  const handleFormSubmit = async (data: BookingFormData) => {
+    try {
+      const success = await onSubmit(data);
+      if (success) {
+        setBookingConfirmed(true);
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+    }
   };
 
   return (
