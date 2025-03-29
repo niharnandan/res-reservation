@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button, Sheet, Typography, Grid, Box, CircularProgress } from '@mui/joy';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
-import BookingForm from './BookngForm';
+import BookingForm from './BookingForm';
 
 interface BookingFormData {
   name: string;
