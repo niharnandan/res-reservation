@@ -1,9 +1,8 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import express from 'express';
 import cors from 'cors';
-import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
-import path from 'path';
+import { initializeMongoDB } from './utils/mongodb';
 
 // Import your existing routes
 import availabilityRoutes from './routes/availability';
@@ -17,32 +16,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// MongoDB Connection setup
-let cachedClient: MongoClient | null = null;
-
-async function connectToDatabase() {
-  if (cachedClient) {
-    return cachedClient;
-  }
-
-  const uri = process.env.MONGODB_URI;
-  
-  if (!uri) {
-    throw new Error('MONGODB_URI environment variable is not set');
-  }
-
-  const client = new MongoClient(uri, {
-    // Recommended options for serverless environments
-    maxPoolSize: 10,
-    serverSelectionTimeoutMS: 5000
-  });
-  
-  await client.connect();
-  
-  cachedClient = client;
-  return client;
-}
-
 // Use your existing routes
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/bookings', bookingsRoutes);
@@ -50,7 +23,9 @@ app.use('/api/bookings', bookingsRoutes);
 // Health check endpoint
 app.get('/api/status', async (_req, res) => {
   try {
-    const client = await connectToDatabase();
+    // Initialize MongoDB connection
+    const { client } = await initializeMongoDB();
+    
     res.status(200).json({
       status: 'ok',
       message: 'MongoDB connection successful',
@@ -71,7 +46,7 @@ app.get('/api/status', async (_req, res) => {
 export default async (req: VercelRequest, res: VercelResponse) => {
   // Initialize MongoDB for each request (if not already connected)
   try {
-    await connectToDatabase();
+    await initializeMongoDB();
   } catch (error) {
     console.error('Error connecting to MongoDB:', error);
     // Continue processing the request even if DB connection fails
