@@ -21,6 +21,9 @@ interface AvailabilityData {
   isFullyBooked: boolean;
 }
 
+// API URL constant - points to the Express server
+const API_URL = 'http://localhost:5001';
+
 const Calendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -61,7 +64,8 @@ const Calendar = () => {
         return;
       }
 
-      const response = await fetch(`/api/availability/${formattedDate}`);
+      // Updated URL to use the API server
+      const response = await fetch(`${API_URL}/api/availability/${formattedDate}`);
       if (!response.ok) {
         throw new Error('Failed to fetch availability');
       }
@@ -141,13 +145,30 @@ const Calendar = () => {
         return false;
       }
 
-      await fetchAvailability(selectedDate);
+      // Return true to show the confirmation with the correct time and date
+      const result = true;
 
-      for (const day of weekdays) {
-        await fetchAvailability(day);
-      }
+      // Refresh the data in the background
+      // We can do this by using the existing fetchAvailability function
+      // Create a function to refresh all days
+      const refreshAllDates = async () => {
+        // First refresh the selected date to update the time slots
+        if (selectedDate) {
+          await fetchAvailability(selectedDate);
+        }
 
-      return true;
+        // Then refresh all weekdays
+        for (const day of weekdays) {
+          if (!selectedDate || !isSameDay(day, selectedDate)) {
+            await fetchAvailability(day);
+          }
+        }
+      };
+
+      // Refresh data in the background without waiting
+      refreshAllDates();
+
+      return result;
     } catch (error) {
       console.error('Error creating booking:', error);
       return false;

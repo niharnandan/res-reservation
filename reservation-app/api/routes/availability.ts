@@ -1,37 +1,13 @@
-import { MongoClient } from 'mongodb';
-import { parseISO, format } from 'date-fns';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { Router, Request, Response } from 'express';
+import { parseISO } from 'date-fns';
+import { connectToDatabase } from '../utils/mongodb';
 
-require('dotenv').config();
-const uri = process.env.MONGODB_URI as string;
-let cachedClient: MongoClient | null = null;
+const router = Router();
 
-async function connectToDatabase(): Promise<MongoClient> {
-  if (cachedClient) {
-    return cachedClient;
-  }
-
-  if (!uri) {
-    throw new Error('MONGODB_URI environment variable is not set');
-  }
-
-  const client = new MongoClient(uri);
-  await client.connect();
-  
-  cachedClient = client;
-  return client;
-}
-
-export default async function handler(
-  req: VercelRequest, 
-  res: VercelResponse
-) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+// GET /api/availability/:date - Check availability for a specific date
+router.get('/:date', async (req: Request, res: Response) => {
   try {
-    const dateParam = req.query.date as string; // Format expected: YYYY-MM-DD
+    const dateParam = req.params.date;
     
     if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
@@ -78,6 +54,11 @@ export default async function handler(
     });
   } catch (error) {
     console.error('Error fetching availability:', error);
-    return res.status(500).json({ error: 'Failed to fetch availability' });
+    return res.status(500).json({ 
+      error: 'Failed to fetch availability',
+      details: error instanceof Error ? error.message : String(error)
+    });
   }
-}
+});
+
+export default router;

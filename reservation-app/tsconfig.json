@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "ES2020",                          // Change to a more recent target for Node.js (ES2020 or later)
     "lib": [
       "dom",
       "dom.iterable",
@@ -13,14 +13,22 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
-    "module": "esnext",
+    "module": "commonjs",                        // Change to commonjs since Node.js uses commonjs modules
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "react-jsx"
+    "isolatedModules": false,                    // Set to false as Node.js doesn't need isolatedModules
+    "noEmit": true,                              // Keep noEmit since we're using ts-node directly
+    "jsx": "react-jsx",                          // Keep this for React components
+    "baseUrl": ".",                              // You can add a baseUrl for cleaner imports
+    "paths": {
+      "@api/*": ["api/*"]                        // This helps for aliasing if needed
+    }
   },
   "include": [
-    "src"
+    "src",                                       // Your React code
+    "api/**/*.ts"                                // Include your backend API directory
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }
