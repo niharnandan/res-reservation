@@ -1,26 +1,6 @@
-import { MongoClient } from 'mongodb';
-import { parseISO, format } from 'date-fns';
+import { parseISO } from 'date-fns';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-require('dotenv').config();
-const uri = process.env.MONGODB_URI as string;
-let cachedClient: MongoClient | null = null;
-
-async function connectToDatabase(): Promise<MongoClient> {
-  if (cachedClient) {
-    return cachedClient;
-  }
-
-  if (!uri) {
-    throw new Error('MONGODB_URI environment variable is not set');
-  }
-
-  const client = new MongoClient(uri);
-  await client.connect();
-  
-  cachedClient = client;
-  return client;
-}
+import { connectToDatabase } from '../utils/mongodb';
 
 export default async function handler(
   req: VercelRequest, 
@@ -42,9 +22,9 @@ export default async function handler(
     // All available time slots
     const allTimeSlots = ['12:30 PM', '4:30 PM', '8:30 PM'];
     
-    const client = await connectToDatabase();
-    const database = client.db('restaurant-bookings');
-    const bookings = database.collection('bookings');
+    // Use the central connection management
+    const { client, db } = await connectToDatabase();
+    const bookings = db.collection('bookings');
     
     // Find bookings for this date
     const startOfDay = new Date(date);
@@ -59,6 +39,8 @@ export default async function handler(
         $lt: endOfDay
       }
     }).toArray();
+    
+    console.log(`Found ${existingBookings.length} bookings for date ${dateParam}`);
     
     // Get booked time slots
     const bookedTimeSlots = existingBookings.map(booking => booking.time);

@@ -4,6 +4,9 @@ import { MongoClient, Db } from 'mongodb';
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
 
+// The name of your database
+const DB_NAME = 'restaurant-bookings';
+
 export async function connectToDatabase() {
   // If we already have a connection, use it
   if (cachedClient && cachedDb) {
@@ -16,42 +19,37 @@ export async function connectToDatabase() {
     throw new Error('MONGODB_URI environment variable is not set');
   }
 
-  const client = new MongoClient(uri, {
-    // Optimization for serverless environments
-    maxPoolSize: 10,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 30000,  // Increased timeout for long-running operations
-  });
-  
   try {
-    await client.connect();
+    console.log(`Creating new MongoDB connection to database: ${DB_NAME}`);
     
-    // Get the database
-    const db = client.db();
+    // Important - use the same connection options consistently across all files
+    const client = new MongoClient(uri, {
+      // Don't set these options, let MongoDB driver use defaults
+      // maxPoolSize: 10, 
+      // serverSelectionTimeoutMS: 5000,
+    });
+    
+    // Connect to MongoDB
+    await client.connect();
+    console.log('Connected to MongoDB server');
+    
+    // Explicitly get the database by name
+    const db = client.db(DB_NAME);
+    console.log(`Connected to database: ${DB_NAME}`);
     
     // Cache the client and db connection
     cachedClient = client;
     cachedDb = db;
     
-    // Initialize database indexes if needed
-    await initializeIndexes(db);
-    
     return { client, db };
   } catch (error) {
     console.error('MongoDB connection error:', error);
+    
+    // Only reset the cache if connection failed
+    cachedClient = null;
+    cachedDb = null;
+    
     throw error;
-  }
-}
-
-// Optional: Initialize any needed indexes for your collections
-async function initializeIndexes(db: Db) {
-  try {
-    // Examples of creating indexes (uncomment and modify as needed)
-    // await db.collection('bookings').createIndex({ date: 1 });
-    // await db.collection('availability').createIndex({ date: 1 });
-  } catch (error) {
-    console.warn('Error creating indexes:', error);
-    // Non-fatal, continue execution
   }
 }
 
@@ -69,5 +67,6 @@ export async function getCollection(name: string) {
 
 // For use in your API routes
 export async function initializeMongoDB() {
+  // Just delegate to connectToDatabase
   return connectToDatabase();
 }

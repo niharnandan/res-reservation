@@ -1,62 +1,88 @@
-import { Router, Request, Response } from 'express';
-import { parseISO } from 'date-fns';
+import express, { Request, Response } from 'express';
 import { connectToDatabase } from '../utils/mongodb';
+import { WithId, Document } from 'mongodb';
 
-const router = Router();
+const router = express.Router();
 
-// GET /api/availability/:date - Check availability for a specific date
+// Define booking type to match your actual MongoDB schema
+interface Booking {
+  date: Date | string;
+  time: string;
+  customerName: string;
+  phoneNumber: string;
+  status: string;
+}
+
+// Define the response type expected by your frontend
+interface AvailabilityResponse {
+  date: string;
+  availableTimeSlots: string[];
+  bookedTimeSlots: string[];
+  allTimeSlots: string[];
+  isFullyBooked?: boolean;
+}
+
+// Get availability for a specific date
 router.get('/:date', async (req: Request, res: Response) => {
+  const requestDate = req.params.date; // Format: yyyy-MM-dd
+  
   try {
-    const dateParam = req.params.date;
+    // Connect to MongoDB
+    const { client } = await connectToDatabase();
+    const database = client.db('restaurant-bookings');
     
-    if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
-    }
+    // Create start and end dates for the query
+    const startDate = new Date(`${requestDate}T00:00:00.000Z`);
+    const endDate = new Date(`${requestDate}T23:59:59.999Z`);
     
-    const date = parseISO(dateParam);
+    console.log(`Checking availability between ${startDate.toISOString()} and ${endDate.toISOString()}`);
     
-    // All available time slots
+    // Get bookings for the specified date using date range
+    const existingBookings = await database
+      .collection('bookings')
+      .find({
+        date: { $gte: startDate, $lte: endDate },
+        status: "confirmed" // Only count confirmed bookings
+      })
+      .toArray();
+    
+    console.log(`Found ${existingBookings.length} bookings for date ${requestDate}`);
+    
+    // Define the three specific time slots
     const allTimeSlots = ['12:30 PM', '4:30 PM', '8:30 PM'];
     
-    const client = await connectToDatabase();
-    const database = client.db('restaurant-bookings');
-    const bookings = database.collection('bookings');
+    // Get all booked time slots - with proper type casting
+    const bookedTimeSlots = existingBookings.map(booking => {
+      // Properly cast to unknown first, then to our type
+      const typedBooking = booking as unknown as Booking;
+      return typedBooking.time;
+    });
     
-    // Find bookings for this date
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+    console.log('Booked time slots:', bookedTimeSlots);
     
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-    
-    const existingBookings = await bookings.find({
-      date: {
-        $gte: startOfDay,
-        $lt: endOfDay
-      }
-    }).toArray();
-    
-    // Get booked time slots
-    const bookedTimeSlots = existingBookings.map(booking => booking.time);
-    
-    // Get available time slots
+    // Filter available time slots
     const availableTimeSlots = allTimeSlots.filter(
-      time => !bookedTimeSlots.includes(time)
+      timeSlot => !bookedTimeSlots.includes(timeSlot)
     );
     
-    // Return availability info
-    return res.status(200).json({
-      date: dateParam,
-      allTimeSlots,
+    // Check if fully booked (no available slots)
+    const isFullyBooked = availableTimeSlots.length === 0;
+    
+    const response: AvailabilityResponse = {
+      date: requestDate,
       availableTimeSlots,
       bookedTimeSlots,
-      isFullyBooked: availableTimeSlots.length === 0
-    });
+      allTimeSlots,
+      isFullyBooked
+    };
+    
+    return res.status(200).json(response);
   } catch (error) {
     console.error('Error fetching availability:', error);
-    return res.status(500).json({ 
-      error: 'Failed to fetch availability',
-      details: error instanceof Error ? error.message : String(error)
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch availability',
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 });

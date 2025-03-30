@@ -1,8 +1,9 @@
-import { MongoClient } from 'mongodb';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
 
-require('dotenv').config();
-const uri = process.env.MONGODB_URI as string;
+// Initialize environment variables
+dotenv.config();
 
 export default async function handler(
   req: VercelRequest, 
@@ -12,7 +13,10 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const uri = process.env.MONGODB_URI;
+
   if (!uri) {
+    console.error('MONGODB_URI environment variable is not set');
     return res.status(500).json({ 
       status: 'error',
       message: 'MONGODB_URI environment variable is not set'
@@ -22,11 +26,17 @@ export default async function handler(
   let client: MongoClient | null = null;
   
   try {
-    // Try to connect to MongoDB
-    client = new MongoClient(uri);
-    await client.connect();
+    // Create MongoDB client with options optimized for serverless
+    client = new MongoClient(uri, {
+      maxPoolSize: 1,
+      serverSelectionTimeoutMS: 5000
+    });
     
-    // Ping the database
+    console.log('Connecting to MongoDB...');
+    await client.connect();
+    console.log('Connected to MongoDB');
+    
+    // Ping the database to verify connection
     await client.db('restaurant-bookings').command({ ping: 1 });
     
     return res.status(200).json({
@@ -42,9 +52,9 @@ export default async function handler(
       error: error instanceof Error ? error.message : String(error)
     });
   } finally {
-    // Close the connection
     if (client) {
       await client.close();
+      console.log('MongoDB connection closed');
     }
   }
 }

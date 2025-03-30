@@ -1,122 +1,146 @@
-import { Router, Request, Response } from 'express';
-import { parseISO, startOfWeek, endOfWeek } from 'date-fns';
+import express, { Request, Response } from 'express';
 import { connectToDatabase } from '../utils/mongodb';
-import { ObjectId } from 'mongodb';
 
-const router = Router();
+const router = express.Router();
+const DB_NAME = 'restaurant-bookings';
+const COLLECTION_NAME = 'bookings';
 
-// POST /api/bookings - Create a new booking
+// Frontend sends this format
+interface BookingRequest {
+  date: string;      // format: 'yyyy-MM-dd'
+  time: string;      // '12:30 PM', '4:30 PM', or '8:30 PM'
+  name: string;      // From BookingForm
+  phone: string;     // From BookingForm
+}
+
+// Create a new booking
 router.post('/', async (req: Request, res: Response) => {
   try {
-    console.log('Received booking request:', req.body);
-    const { date, time, name, phone } = req.body;
+    const bookingData = req.body as BookingRequest;
     
-    if (!date || !time || !name || !phone) {
-      console.error('Missing required fields:', { date, time, name, phone });
-      return res.status(400).json({ error: 'All fields are required' });
+    // Validate required fields
+    const requiredFields = ['date', 'time', 'name', 'phone'];
+    for (const field of requiredFields) {
+      if (!bookingData[field as keyof BookingRequest]) {
+        return res.status(400).json({ 
+          status: 'error',
+          message: `Missing required field: ${field}`
+        });
+      }
     }
     
-    // Validate phone number format
-    const phoneRegex = /^(\+?1[-\s.]?)?(\(?\d{3}\)?[-\s.]?)?\d{3}[-\s.]?\d{4}$/;
-    if (!phoneRegex.test(phone)) {
-      return res.status(400).json({ error: 'Invalid phone number format' });
-    }
+    // Connect to MongoDB
+    const { client } = await connectToDatabase();
     
-    const bookingDate = parseISO(date);
+    // Explicitly specify the database
+    const database = client.db(DB_NAME);
+    console.log(`Using database: ${DB_NAME}, collection: ${COLLECTION_NAME}`);
     
-    // Calculate expiration date (end of the week)
-    const weekStart = startOfWeek(bookingDate, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-    weekEnd.setHours(23, 59, 59, 999);
+    // Convert date string to Date object
+    const bookingDate = new Date(`${bookingData.date}T${convertTo24Hour(bookingData.time)}`);
+    const expiresAt = new Date(bookingDate);
     
-    const client = await connectToDatabase();
-    const database = client.db('restaurant-bookings');
-    const bookings = database.collection('bookings');
+    // Check if the time slot is already booked
+    const startOfDay = new Date(`${bookingData.date}T00:00:00.000Z`);
+    const endOfDay = new Date(`${bookingData.date}T23:59:59.999Z`);
     
-    // Format date for consistent querying
-    const startOfDay = new Date(bookingDate);
-    startOfDay.setHours(0, 0, 0, 0);
+    // IMPORTANT: Get a reference to the collection
+    const bookingsCollection = database.collection(COLLECTION_NAME);
     
-    const endOfDay = new Date(bookingDate);
-    endOfDay.setHours(23, 59, 59, 999);
-    
-    // Check if this slot is already booked
-    const existingBooking = await bookings.findOne({
-      date: {
-        $gte: startOfDay,
-        $lt: endOfDay
-      },
-      time: time
+    // Check for existing booking
+    const existingBooking = await bookingsCollection.findOne({ 
+      date: { $gte: startOfDay, $lte: endOfDay },
+      time: bookingData.time,
+      status: "confirmed"
     });
     
     if (existingBooking) {
-      console.error('Time slot already booked:', { date, time });
-      return res.status(409).json({ error: 'This time slot is already booked' });
+      return res.status(409).json({
+        status: 'error',
+        message: 'This time slot is already booked'
+      });
     }
     
-    // Create the booking
-    console.log('Creating new booking for:', { date: bookingDate, time, name, phone });
-    const result = await bookings.insertOne({
+    // IMPORTANT: Use insertOne to add a new document to the collection
+    // This correctly appends to the collection without replacing existing documents
+    const newBooking = {
       date: bookingDate,
-      time,
-      customerName: name,
-      phoneNumber: phone,
+      time: bookingData.time,
+      customerName: bookingData.name,
+      phoneNumber: bookingData.phone,
       createdAt: new Date(),
-      expiresAt: weekEnd,
-      status: 'confirmed'
-    });
+      expiresAt: expiresAt,
+      status: "confirmed"
+    };
     
-    console.log('Booking created successfully with ID:', result.insertedId.toString());
-    return res.status(201).json({ 
-      success: true, 
-      bookingId: result.insertedId.toString() 
+    console.log('Inserting new booking:', newBooking);
+    
+    // Use insertOne - this appends to the collection and doesn't replace it
+    const result = await bookingsCollection.insertOne(newBooking);
+    
+    console.log(`Successfully inserted booking with ID: ${result.insertedId}`);
+    
+    return res.status(201).json({
+      status: 'success',
+      message: 'Booking created successfully',
+      bookingId: result.insertedId
     });
   } catch (error) {
     console.error('Error creating booking:', error);
-    return res.status(500).json({ 
-      error: 'Failed to create booking',
-      details: error instanceof Error ? error.message : String(error)
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to create booking',
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 });
 
-// GET /api/bookings - Get all bookings (admin only)
-router.get('/', async (req: Request, res: Response) => {
+// Get all bookings
+router.get('/', async (_req: Request, res: Response) => {
   try {
-    // Note: In production, you would implement proper authentication here
-    // This is a simple placeholder for demo purposes
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    // Connect to MongoDB
+    const { client } = await connectToDatabase();
     
-    const client = await connectToDatabase();
-    const database = client.db('restaurant-bookings');
-    const bookings = database.collection('bookings');
+    // Explicitly specify the database
+    const database = client.db(DB_NAME);
     
-    // Get bookings for the current week only
-    const now = new Date();
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    weekStart.setHours(0, 0, 0, 0);
+    // Get a reference to the collection
+    const bookingsCollection = database.collection(COLLECTION_NAME);
     
-    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-    weekEnd.setHours(23, 59, 59, 999);
+    // Find all bookings
+    const bookings = await bookingsCollection
+      .find({})
+      .sort({ date: 1, time: 1 })
+      .toArray();
     
-    const allBookings = await bookings.find({
-      date: {
-        $gte: weekStart,
-        $lte: weekEnd
-      }
-    }).sort({ date: 1, time: 1 }).toArray();
+    console.log(`Retrieved ${bookings.length} bookings from collection`);
     
-    return res.status(200).json(allBookings);
+    return res.status(200).json(bookings);
   } catch (error) {
     console.error('Error fetching bookings:', error);
-    return res.status(500).json({ 
-      error: 'Failed to fetch bookings',
-      details: error instanceof Error ? error.message : String(error)
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch bookings',
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 });
+
+// Helper function to convert '4:30 PM' to '16:30:00'
+function convertTo24Hour(time12h: string): string {
+  const [time, modifier] = time12h.split(' ');
+  let [hours, minutes] = time.split(':');
+  
+  let hoursNum = parseInt(hours, 10);
+  
+  if (modifier === 'PM' && hoursNum < 12) {
+    hoursNum += 12;
+  }
+  if (modifier === 'AM' && hoursNum === 12) {
+    hoursNum = 0;
+  }
+  
+  return `${hoursNum.toString().padStart(2, '0')}:${minutes}:00.000`;
+}
 
 export default router;

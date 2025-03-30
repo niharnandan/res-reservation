@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button, Sheet, Typography, Grid, Box, CircularProgress } from '@mui/joy';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 import BookingForm from './BookingForm';
@@ -31,6 +31,7 @@ const Calendar = () => {
   const [availabilityData, setAvailabilityData] = useState<Record<string, AvailabilityData>>({});
   const [displayTimeSlots, setDisplayTimeSlots] = useState<TimeSlot[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const today = new Date();
   const monday = startOfWeek(today, { weekStartsOn: 1 });
@@ -42,29 +43,13 @@ const Calendar = () => {
 
   const defaultTimeSlots = ['12:30 PM', '4:30 PM', '8:30 PM'];
 
-  useEffect(() => {
-    const loadAllAvailability = async () => {
-      for (const day of weekdays) {
-        await fetchAvailability(day);
-      }
-    };
-
-    loadAllAvailability();
-  }, []);
-
-  const fetchAvailability = async (date: Date) => {
+  // Create a memoized fetchAvailability function with useCallback
+  const fetchAvailability = useCallback(async (date: Date) => {
     try {
       setIsLoading(true);
       const formattedDate = format(date, 'yyyy-MM-dd');
 
-      if (availabilityData[formattedDate]) {
-        if (selectedDate && isSameDay(date, selectedDate)) {
-          updateDisplayTimeSlots(availabilityData[formattedDate]);
-        }
-        return;
-      }
-
-      // Updated URL to use the API server
+      // Always fetch fresh data when refreshKey changes
       const response = await fetch(`${API_URL}/api/availability/${formattedDate}`);
       if (!response.ok) {
         throw new Error('Failed to fetch availability');
@@ -88,7 +73,20 @@ const Calendar = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedDate, refreshKey]); // Include refreshKey in the dependency array
+
+  useEffect(() => {
+    const loadAllAvailability = async () => {
+      // Clear old data
+      setAvailabilityData({});
+      
+      for (const day of weekdays) {
+        await fetchAvailability(day);
+      }
+    };
+
+    loadAllAvailability();
+  }, [fetchAvailability, refreshKey]); // Include fetchAvailability and refreshKey
 
   const updateDisplayTimeSlots = (data: AvailabilityData) => {
     setDisplayTimeSlots(
@@ -127,7 +125,7 @@ const Calendar = () => {
     if (!selectedDate || !selectedTime) return false;
 
     try {
-      const response = await fetch('/api/bookings', {
+      const response = await fetch(`${API_URL}/api/bookings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -145,30 +143,12 @@ const Calendar = () => {
         return false;
       }
 
-      // Return true to show the confirmation with the correct time and date
-      const result = true;
-
-      // Refresh the data in the background
-      // We can do this by using the existing fetchAvailability function
-      // Create a function to refresh all days
-      const refreshAllDates = async () => {
-        // First refresh the selected date to update the time slots
-        if (selectedDate) {
-          await fetchAvailability(selectedDate);
-        }
-
-        // Then refresh all weekdays
-        for (const day of weekdays) {
-          if (!selectedDate || !isSameDay(day, selectedDate)) {
-            await fetchAvailability(day);
-          }
-        }
-      };
-
-      // Refresh data in the background without waiting
-      refreshAllDates();
-
-      return result;
+      // After successful booking, increment refreshKey to trigger re-render and data refresh
+      setTimeout(() => {
+        setRefreshKey(prevKey => prevKey + 1);
+      }, 500); // Small delay to ensure confirmation is shown first
+      
+      return true;
     } catch (error) {
       console.error('Error creating booking:', error);
       return false;
@@ -199,7 +179,7 @@ const Calendar = () => {
 
         <Grid container spacing={2} sx={{ mb: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
           {weekdays.map((day, index) => (
-            <Grid xs={12} sm={2.4} key={index}>
+            <Grid xs={12} sm={2.4} key={`${index}-${refreshKey}`}>
               <Box
                 sx={{
                   textAlign: 'center',
@@ -255,7 +235,7 @@ const Calendar = () => {
             ) : (
               <Grid container spacing={2} sx={{ flexWrap: 'wrap', justifyContent: 'center' }}>
                 {displayTimeSlots.map(slot => (
-                  <Grid xs={12} sm={4} key={slot.time}>
+                  <Grid xs={12} sm={4} key={`${slot.time}-${refreshKey}`}>
                     <Button
                       variant={selectedTime === slot.time ? 'solid' : 'outlined'}
                       color={selectedTime === slot.time ? 'warning' : 'neutral'}

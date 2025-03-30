@@ -1,25 +1,6 @@
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-require('dotenv').config();
-const uri = process.env.MONGODB_URI as string;
-let cachedClient: MongoClient | null = null;
-
-async function connectToDatabase(): Promise<MongoClient> {
-  if (cachedClient) {
-    return cachedClient;
-  }
-
-  if (!uri) {
-    throw new Error('MONGODB_URI environment variable is not set');
-  }
-
-  const client = new MongoClient(uri);
-  await client.connect();
-  
-  cachedClient = client;
-  return client;
-}
+import { connectToDatabase } from '../utils/mongodb';
 
 export default async function handler(
   req: VercelRequest, 
@@ -39,9 +20,9 @@ export default async function handler(
   }
   
   try {
-    const client = await connectToDatabase();
-    const database = client.db('restaurant-bookings');
-    const bookings = database.collection('bookings');
+    // Use the central connection management
+    const { db } = await connectToDatabase();
+    const bookings = db.collection('bookings');
     
     // Handle different request methods
     switch (req.method) {
