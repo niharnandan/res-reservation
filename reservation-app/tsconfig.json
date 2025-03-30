@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2020",                          // Change to a more recent target for Node.js (ES2020 or later)
+    "target": "ESNext",                            // Updated to a more modern target for better compatibility
     "lib": [
       "dom",
       "dom.iterable",
@@ -13,20 +13,20 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
-    "module": "commonjs",                        // Change to commonjs since Node.js uses commonjs modules
+    "module": "ESNext",                            // Changed to ESNext for modern module support
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "isolatedModules": false,                    // Set to false as Node.js doesn't need isolatedModules
-    "noEmit": true,                              // Keep noEmit since we're using ts-node directly
-    "jsx": "react-jsx",                          // Keep this for React components
-    "baseUrl": ".",                              // You can add a baseUrl for cleaner imports
+    "isolatedModules": false,                      // Set to false, not required for Node.js
+    "noEmit": true,                                // Keep noEmit for ts-node usage
+    "jsx": "react-jsx",                            // JSX option for React 17+ JSX transform
+    "baseUrl": ".",                                // Optionally allows cleaner imports
     "paths": {
-      "@api/*": ["api/*"]                        // This helps for aliasing if needed
+      "@api/*": ["api/*"]                          // Optional alias for backend API (if you use this pattern)
     }
   },
   "include": [
-    "src",                                       // Your React code
-    "api/**/*.ts"                                // Include your backend API directory
+    "src",                                         // Your React code
+    "api/**/*.ts"                                  // Include backend API TypeScript files
   ],
   "exclude": [
     "node_modules"
