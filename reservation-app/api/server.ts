@@ -2,25 +2,19 @@ import express from 'express';
 import cors from 'cors';
 import { MongoClient } from 'mongodb';
 import { initializeMongoDB } from './utils/mongodb';
+import dotenv from 'dotenv';
 
 // Import routes
 import availabilityRoutes from './routes/availability';
 import bookingsRoutes from './routes/bookings';
 
-require('dotenv').config();
-
-console.log('MONGODB_URI:', process.env.MONGODB_URI! ? 'is set' : 'is NOT set', process.env.MONGODB_URI);
+// Load environment variables
+dotenv.config();
 
 // Create Express app
 const app = express();
-const port = process.env.API_PORT || 5001;
-
-// Middleware
 app.use(cors());
 app.use(express.json());
-
-// MongoDB Connection
-let cachedClient: MongoClient | null = null;
 
 // API Routes
 app.use('/api/availability', availabilityRoutes);
@@ -47,14 +41,19 @@ app.get('/api/status', async (_req, res) => {
   }
 });
 
-// Start the server
-app.listen(port, async () => {
-  try {
-    // Initialize MongoDB on server start
-    await initializeMongoDB();
-    console.log('MongoDB initialized successfully');
-    console.log(`Server running at http://localhost:${port}`);
-  } catch (error) {
-    console.error('Failed to initialize MongoDB:', error);
-  }
-});
+// Conditional server start - only start in development mode
+if (process.env.NODE_ENV !== 'production') {
+  const port = process.env.API_PORT || 5001;
+  app.listen(port, async () => {
+    try {
+      // Initialize MongoDB on server start
+      await initializeMongoDB();
+      console.log('MongoDB initialized successfully');
+      console.log(`Server running at http://localhost:${port}`);
+    } catch (error) {
+      console.error('Failed to initialize MongoDB:', error);
+    }
+  });
+}
+
+export default app;
