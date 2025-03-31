@@ -257,4 +257,12 @@ app.get('/api/status', async (req: Request, res: Response) => {
   }
 });
 
-export default app;
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+};
+
+export default async (req, res) => {
+  app(req, res);
+};
