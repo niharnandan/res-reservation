@@ -257,8 +257,10 @@ app.get('/api/status', async (req: Request, res: Response) => {
   }
 });
 
-// Create a Vercel handler function that passes requests to Express
+// For Express
 module.exports = app;
 
-// Also support serverless function format for compatibility
-export default (req: any, res: any) => app(req, res);
+// For Vercel serverless functions
+export default function handler(req: any, res: any) {
+  return app(req, res);
+}
