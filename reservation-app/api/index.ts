@@ -257,10 +257,4 @@ app.get('/api/status', async (req: Request, res: Response) => {
   }
 });
 
-// For Express
-module.exports = app;
-
-// For Vercel serverless functions
-export default function handler(req: any, res: any) {
-  return app(req, res);
-}
+export default app;

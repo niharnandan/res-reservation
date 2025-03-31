@@ -30,7 +30,7 @@
   "scripts": {
     "start": "vite",
     "build": "vite build",
-    "vercel-build": "vite build --force",
+    "vercel-build": "vite build && ls -la build",
     "dev": "vite",
     "dev:api": "ts-node --project api/tsconfig.json api/dev-server.ts",
     "test": "echo \"No tests specified\"",
