@@ -26,10 +26,19 @@ interface BookingFormProps {
   selectedTime: string | null;
   onClose: () => void;
   onSubmit: (data: BookingFormData) => Promise<boolean | undefined>;
+  onBookingComplete: (status: 'confirmed' | 'failed') => void; // New prop
 }
 
-const BookingForm = ({ open, selectedDate, selectedTime, onClose, onSubmit }: BookingFormProps) => {
-  const [bookingConfirmed, setBookingConfirmed] = useState(false);
+const BookingForm = ({ 
+  open, 
+  selectedDate, 
+  selectedTime, 
+  onClose, 
+  onSubmit, 
+  onBookingComplete 
+}: BookingFormProps) => {
+  const [bookingStatus, setBookingStatus] = useState<'pending' | 'confirmed' | 'failed'>('pending');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     register,
@@ -39,21 +48,33 @@ const BookingForm = ({ open, selectedDate, selectedTime, onClose, onSubmit }: Bo
   } = useForm<BookingFormData>();
 
   const handleClose = () => {
-    if (bookingConfirmed) {
+    if (bookingStatus !== 'pending') {
       reset();
-      setBookingConfirmed(false);
+      setBookingStatus('pending');
+      // Notify parent component about the booking status when closing
+      if (bookingStatus === 'confirmed' || bookingStatus === 'failed') {
+        onBookingComplete(bookingStatus);
+      }
     }
     onClose();
   };
 
   const handleFormSubmit = async (data: BookingFormData) => {
     try {
+      setIsSubmitting(true);
+      setBookingStatus('pending'); // Reset to pending before submission
+
       const success = await onSubmit(data);
       if (success) {
-        setBookingConfirmed(true);
+        setBookingStatus('confirmed');
+      } else {
+        setBookingStatus('failed');
       }
     } catch (error) {
       console.error('Error submitting form:', error);
+      setBookingStatus('failed');
+    } finally {
+      setIsSubmitting(false); // Reset the loading state after submission attempt
     }
   };
 
@@ -84,7 +105,7 @@ const BookingForm = ({ open, selectedDate, selectedTime, onClose, onSubmit }: Bo
       >
         <ModalClose />
 
-        {!bookingConfirmed ? (
+        {bookingStatus === 'pending' ? (
           <>
             <Typography level="h2" component="h2" sx={{ mb: 2 }}>
               Complete Your Booking
@@ -132,14 +153,20 @@ const BookingForm = ({ open, selectedDate, selectedTime, onClose, onSubmit }: Bo
                 </Grid>
 
                 <Grid xs={12} sx={{ mt: 2 }}>
-                  <Button type="submit" color="primary" size="lg" fullWidth>
-                    Confirm Booking
+                  <Button
+                    type="submit"
+                    color="primary"
+                    size="lg"
+                    fullWidth
+                    disabled={isSubmitting} // Disable button while submitting
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Confirm Booking'}
                   </Button>
                 </Grid>
               </Grid>
             </form>
           </>
-        ) : (
+        ) : bookingStatus === 'confirmed' ? (
           <Box sx={{ textAlign: 'center', py: 2 }}>
             <Typography level="h2" component="h2" sx={{ mb: 2 }}>
               Booking Confirmed!
@@ -148,6 +175,18 @@ const BookingForm = ({ open, selectedDate, selectedTime, onClose, onSubmit }: Bo
               {`Your table has been reserved for ${selectedDate ? format(selectedDate, 'EEEE, MMM d') : ''} at ${selectedTime}.`}
             </Typography>
             <Button color="primary" size="lg" onClick={handleClose}>
+              Close
+            </Button>
+          </Box>
+        ) : (
+          <Box sx={{ textAlign: 'center', py: 2 }}>
+            <Typography level="h2" component="h2" sx={{ mb: 2, color: 'danger' }}>
+              Booking Failed
+            </Typography>
+            <Typography level="body-lg" sx={{ mb: 3 }}>
+              There was an issue with your booking. Please try again later.
+            </Typography>
+            <Button color="danger" size="lg" onClick={handleClose}>
               Close
             </Button>
           </Box>

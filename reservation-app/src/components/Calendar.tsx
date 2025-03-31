@@ -125,6 +125,19 @@ const Calendar = () => {
     setIsFormOpen(false);
   };
 
+  // New function to handle booking completion
+  const handleBookingComplete = (status: 'confirmed' | 'failed') => {
+    if (status === 'confirmed') {
+      // Reset selections and refresh data
+      setSelectedDate(null);
+      setSelectedTime(null);
+      
+      // Refresh the calendar data
+      setRefreshKey(prevKey => prevKey + 1);
+    }
+    // For 'failed' status, we don't do anything as per requirement
+  };
+
   const handleFormSubmit = async (data: BookingFormData): Promise<boolean> => {
     if (!selectedDate || !selectedTime) return false;
 
@@ -146,11 +159,6 @@ const Calendar = () => {
         console.error('Booking failed:', await response.json());
         return false;
       }
-
-      // After successful booking, increment refreshKey to trigger re-render and data refresh
-      setTimeout(() => {
-        setRefreshKey(prevKey => prevKey + 1);
-      }, 500); // Small delay to ensure confirmation is shown first
 
       return true;
     } catch (error) {
@@ -293,6 +301,7 @@ const Calendar = () => {
         selectedTime={selectedTime}
         onClose={closeBookingForm}
         onSubmit={handleFormSubmit}
+        onBookingComplete={handleBookingComplete} // Pass the new callback
       />
     </>
   );
