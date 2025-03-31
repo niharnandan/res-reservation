@@ -31,11 +31,10 @@
     "start": "vite",
     "build": "vite build",
     "dev": "vite",
+    "dev:api": "ts-node --project api/tsconfig.json api/dev-server.ts",
     "test": "echo \"No tests specified\"",
-    "eject": "echo \"Ejecting is not supported in this custom setup\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx}\"",
-    "vercel-dev": "vercel dev"
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx}\""
   },
   "eslintConfig": {
     "extends": [

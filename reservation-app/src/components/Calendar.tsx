@@ -44,43 +44,46 @@ const Calendar = () => {
   const defaultTimeSlots = ['12:30 PM', '4:30 PM', '8:30 PM'];
 
   // Create a memoized fetchAvailability function with useCallback
-  const fetchAvailability = useCallback(async (date: Date) => {
-    try {
-      setIsLoading(true);
-      const formattedDate = format(date, 'yyyy-MM-dd');
+  const fetchAvailability = useCallback(
+    async (date: Date) => {
+      try {
+        setIsLoading(true);
+        const formattedDate = format(date, 'yyyy-MM-dd');
 
-      // Always fetch fresh data when refreshKey changes
-      const response = await fetch(`/api/availability/${formattedDate}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch availability');
+        // Always fetch fresh data when refreshKey changes
+        const response = await fetch(`/api/availability/${formattedDate}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch availability');
+        }
+
+        const data: AvailabilityData = await response.json();
+
+        setAvailabilityData(prev => ({
+          ...prev,
+          [formattedDate]: data,
+        }));
+
+        if (selectedDate && isSameDay(date, selectedDate)) {
+          updateDisplayTimeSlots(data);
+        }
+      } catch (error) {
+        console.error('Error fetching availability:', error);
+        if (selectedDate && isSameDay(date, selectedDate)) {
+          setDisplayTimeSlots(defaultTimeSlots.map(time => ({ time, isAvailable: true })));
+        }
+      } finally {
+        setIsLoading(false);
       }
-
-      const data: AvailabilityData = await response.json();
-
-      setAvailabilityData(prev => ({
-        ...prev,
-        [formattedDate]: data,
-      }));
-
-      if (selectedDate && isSameDay(date, selectedDate)) {
-        updateDisplayTimeSlots(data);
-      }
-    } catch (error) {
-      console.error('Error fetching availability:', error);
-      if (selectedDate && isSameDay(date, selectedDate)) {
-        setDisplayTimeSlots(defaultTimeSlots.map(time => ({ time, isAvailable: true })));
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedDate, refreshKey]); // Include refreshKey in the dependency array
+    },
+    [selectedDate, refreshKey]
+  ); // Include refreshKey in the dependency array
 
   useEffect(() => {
     fetch('/api/status').catch(err => console.log('Warming up serverless functions'));
     const loadAllAvailability = async () => {
       // Clear old data
       setAvailabilityData({});
-      
+
       for (const day of weekdays) {
         await fetchAvailability(day);
       }
@@ -148,7 +151,7 @@ const Calendar = () => {
       setTimeout(() => {
         setRefreshKey(prevKey => prevKey + 1);
       }, 500); // Small delay to ensure confirmation is shown first
-      
+
       return true;
     } catch (error) {
       console.error('Error creating booking:', error);
