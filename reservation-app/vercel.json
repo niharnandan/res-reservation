@@ -5,7 +5,19 @@
     { "src": "package.json", "use": "@vercel/static-build" }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api" },
-    { "src": "/(.*)", "dest": "/index.html" }
-  ]
+    { "src": "/api/(.*)", "dest": "/api/index.ts" },
+    { 
+      "src": "^/assets/(.*)", 
+      "dest": "/assets/$1" 
+    },
+    { 
+      "src": "^/(.*)\\.(js|css|ico|png|jpg|jpeg|svg|webp)$", 
+      "dest": "/$1.$2" 
+    },
+    { 
+      "src": "/(.*)", 
+      "dest": "/index.html" 
+    }
+  ],
+  "outputDirectory": "build"
 }
