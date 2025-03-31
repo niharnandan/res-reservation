@@ -76,6 +76,7 @@ const Calendar = () => {
   }, [selectedDate, refreshKey]); // Include refreshKey in the dependency array
 
   useEffect(() => {
+    fetch('/api/status').catch(err => console.log('Warming up serverless functions'));
     const loadAllAvailability = async () => {
       // Clear old data
       setAvailabilityData({});
@@ -86,7 +87,7 @@ const Calendar = () => {
     };
 
     loadAllAvailability();
-  }, [fetchAvailability, refreshKey]); // Include fetchAvailability and refreshKey
+  }, [fetchAvailability, refreshKey]);
 
   const updateDisplayTimeSlots = (data: AvailabilityData) => {
     setDisplayTimeSlots(

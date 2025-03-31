@@ -17,8 +17,11 @@ export async function connectToDatabase() {
   }
 
   try {
-    // Create new MongoDB client
-    const client = new MongoClient(uri);
+    // Create new MongoDB client with optimized connection pool settings
+    const client = new MongoClient(uri, {
+      maxPoolSize: 10, // Optimize connection pool size
+      serverSelectionTimeoutMS: 5000, // Reduce timeout for faster failures
+    });
     
     // Connect to MongoDB
     await client.connect();
@@ -26,6 +29,26 @@ export async function connectToDatabase() {
     
     // Get database reference
     const db = client.db(DB_NAME);
+    
+    // Create indexes for better query performance
+    try {
+      // Create compound index on date and time for faster lookups
+      await db.collection('bookings').createIndex(
+        { date: 1, time: 1 }, 
+        { unique: true, background: true }
+      );
+      
+      // Add TTL index for automatic expiration of bookings
+      await db.collection('bookings').createIndex(
+        { expiresAt: 1 }, 
+        { expireAfterSeconds: 0, background: true }
+      );
+      
+      console.log('MongoDB indexes created');
+    } catch (indexError) {
+      console.warn('Warning: Unable to create indexes', indexError);
+      // Continue even if index creation fails
+    }
     
     // Cache the client and db connection
     cachedClient = client;
