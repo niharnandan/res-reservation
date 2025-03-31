@@ -2,7 +2,6 @@
   "name": "reservation-app",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://localhost:5001",
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
@@ -36,9 +35,7 @@
     "eject": "echo \"Ejecting is not supported in this custom setup\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx}\"",
-    "start:api": "ts-node --project tsconfig.api.json api/server.ts",
-    "dev:api": "nodemon --exec ts-node --project tsconfig.api.json api/server.ts",
-    "build:api": "tsc -p tsconfig.api.json"
+    "vercel-dev": "vercel dev"
   },
   "eslintConfig": {
     "extends": [

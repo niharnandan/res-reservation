@@ -22,7 +22,7 @@ interface AvailabilityData {
 }
 
 // API URL constant - points to the Express server
-const API_URL = 'http://localhost:5001';
+const API_URL = '';
 
 const Calendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -50,7 +50,7 @@ const Calendar = () => {
       const formattedDate = format(date, 'yyyy-MM-dd');
 
       // Always fetch fresh data when refreshKey changes
-      const response = await fetch(`${API_URL}/api/availability/${formattedDate}`);
+      const response = await fetch(`/api/availability/${formattedDate}`);
       if (!response.ok) {
         throw new Error('Failed to fetch availability');
       }
@@ -125,7 +125,7 @@ const Calendar = () => {
     if (!selectedDate || !selectedTime) return false;
 
     try {
-      const response = await fetch(`${API_URL}/api/bookings`, {
+      const response = await fetch(`/api/bookings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

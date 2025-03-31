@@ -1,10 +1,7 @@
 import { MongoClient, Db } from 'mongodb';
 
-// Global variables to cache the database connection
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
-
-// The name of your database
 const DB_NAME = 'restaurant-bookings';
 
 export async function connectToDatabase() {
@@ -20,22 +17,15 @@ export async function connectToDatabase() {
   }
 
   try {
-    console.log(`Creating new MongoDB connection to database: ${DB_NAME}`);
-    
-    // Important - use the same connection options consistently across all files
-    const client = new MongoClient(uri, {
-      // Don't set these options, let MongoDB driver use defaults
-      // maxPoolSize: 10, 
-      // serverSelectionTimeoutMS: 5000,
-    });
+    // Create new MongoDB client
+    const client = new MongoClient(uri);
     
     // Connect to MongoDB
     await client.connect();
-    console.log('Connected to MongoDB server');
+    console.log('Connected to MongoDB');
     
-    // Explicitly get the database by name
+    // Get database reference
     const db = client.db(DB_NAME);
-    console.log(`Connected to database: ${DB_NAME}`);
     
     // Cache the client and db connection
     cachedClient = client;
@@ -44,29 +34,8 @@ export async function connectToDatabase() {
     return { client, db };
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    
-    // Only reset the cache if connection failed
     cachedClient = null;
     cachedDb = null;
-    
     throw error;
   }
-}
-
-// Simplified helper to get the database
-export async function getDB() {
-  const { db } = await connectToDatabase();
-  return db;
-}
-
-// Simplified helper to get a specific collection
-export async function getCollection(name: string) {
-  const db = await getDB();
-  return db.collection(name);
-}
-
-// For use in your API routes
-export async function initializeMongoDB() {
-  // Just delegate to connectToDatabase
-  return connectToDatabase();
 }
